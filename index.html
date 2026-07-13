@@ -211,6 +211,33 @@
   .qscore{font-family:var(--display);font-size:3.4rem;color:#C4577A;line-height:1}
   .qresult p{font-family:var(--display);font-style:italic;font-size:1.5rem;margin-top:10px;color:var(--plum-2)}
 
+  /* ── PUZZLE ── */
+  .puzzle-hint{text-align:center;font-size:.68rem;letter-spacing:.28em;text-transform:uppercase;color:var(--gold);opacity:.8;margin-top:8px}
+  .puzzle-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;max-width:360px;margin:22px auto 0}
+  .ptile{
+    background:#FFFFFF;padding:10px 10px 8px;border-radius:14px;cursor:pointer;
+    box-shadow:0 16px 38px rgba(180,150,175,.25);border:2px solid transparent;
+    transition:transform .25s ease,border-color .25s ease;
+  }
+  .ptile:hover{transform:translateY(-3px)}
+  .ptile-img{position:relative;aspect-ratio:1/1;border-radius:9px;overflow:hidden;background:#F3E6EF}
+  .ptile-img img{width:100%;height:100%;object-fit:cover;display:block}
+  .ptile-img .empty{position:absolute;inset:0;display:grid;place-items:center;color:#B58AA8;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase}
+  .pnum{
+    position:absolute;top:8px;left:8px;width:22px;height:22px;border-radius:50%;
+    background:rgba(94,68,104,.78);color:#fff;font-family:var(--ui);font-size:.7rem;
+    display:none;align-items:center;justify-content:center;
+  }
+  .ptile.solved .pnum{display:flex}
+  .ptile.solved{border-color:#7FBF9B;cursor:default}
+  .ptile.solved:hover{transform:none}
+  .pcap{font-family:var(--hand);font-size:1.05rem;color:#5E4468;text-align:center;
+    opacity:0;max-height:0;overflow:hidden;transition:opacity .5s ease,max-height .5s ease}
+  .ptile.solved .pcap{opacity:1;max-height:2.2em;margin-top:6px}
+  @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+  .ptile.shake{animation:shake .4s ease}
+  .puzzle-msg{font-family:var(--display);font-style:italic;font-size:1.25rem;color:#C4577A;text-align:center;margin-top:18px;min-height:1.6em}
+
   /* ── END ── */
   .end{min-height:80svh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:18px}
   .bigheart{width:76px;height:76px;animation:beat 1.5s ease-in-out infinite}
@@ -291,6 +318,17 @@
     </div>
   </section>
 
+  <!-- PUZZLE -->
+  <section class="center">
+    <p class="eyebrow reveal">One more thing</p>
+    <h2 class="reveal" style="font-family:var(--display);font-style:italic;font-weight:300;font-size:2rem;margin-top:10px">Put our month back in order.</h2>
+    <p class="puzzle-hint reveal">tap the photos in the order they happened</p>
+    <div class="reveal">
+      <div class="puzzle-grid" id="puzzleGrid"></div>
+      <p class="puzzle-msg" id="puzzleMsg"></p>
+    </div>
+  </section>
+
   <!-- END -->
   <section class="end reveal">
     <svg class="bigheart" viewBox="0 0 32 29" aria-hidden="true"><path d="M16 29S0 19 0 9.5A8.5 8.5 0 0 1 16 5 8.5 8.5 0 0 1 32 9.5C32 19 16 29 16 29Z" fill="#F2A4B8"/></svg>
@@ -315,9 +353,9 @@ const PHOTOS = [
 const QUIZ = [
   { q:"Where did we first meet?",              a:["The place we always go back to","Somewhere neither of us planned","A friend's thing"], c:1, note:"and I'm so glad we did ♡" },
   { q:"What was the first thing I said to you?",a:["Something painfully awkward","Something smooth","I honestly don't remember"], c:0, note:"I rehearsed it. It still came out wrong." },
-  { q:"Who texted first?",                     a:["You","Me","We both did at once"], c:1, note:"I waited 40 minutes to look casual." },
-  { q:"What was our first date?",              a:["Food","A walk that went too long","We just talked for hours"], c:2, note:"and the hours didn't feel like hours." },
-  { q:"What do I love most about your face?",  a:["Your eyes","Your smile","The look you give me when I'm being dumb"], c:2, note:"that one. Every time." },
+  { q:"Who texted first?",                     a:["You","Me","We both did at once"], c:1, note:"Did not expect the quick reply" },
+  { q:"Where was our first date?",              a:["Corner House","Cubbon Park","We just talked for hours"], c:2, note:"and the hours didn't feel like hours." },
+  { q:"What do I love most about your face?",  a:["Your eyes","Your smile","Your Nose"], c:2, note:"that one. Every time." },
   { q:"What's my favourite thing you say?",    a:["My name","'come here'","'you're impossible'"], c:0, note:"the way you say it, specifically." },
   { q:"What song reminds me of you?",          a:["The one from that night","The one you sent me","All of them now, honestly"], c:2, note:"you ruined my whole playlist ♡" },
   { q:"What's my favourite time with you?",    a:["Late nights","Mornings","The boring in-between ones"], c:2, note:"nothing happening, you next to me." },
@@ -387,6 +425,64 @@ document.getElementById('polaroids').innerHTML = PHOTOS.map((p,i)=>`
     </div>
     <figcaption>${p.caption}</figcaption>
   </figure>`).join('');
+
+// Puzzle
+(function(){
+  const grid = document.getElementById('puzzleGrid');
+  const msg = document.getElementById('puzzleMsg');
+  if (!grid || !PHOTOS.length) return;
+
+  const order = PHOTOS.map((_,i)=>i);
+  do {
+    for (let i = order.length-1; i>0; i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [order[i],order[j]] = [order[j],order[i]];
+    }
+  } while (PHOTOS.length>1 && order.every((v,i)=>v===i));
+
+  let next = 0, locked = false;
+
+  function render(){
+    grid.innerHTML = order.map(idx=>{
+      const p = PHOTOS[idx];
+      return `<div class="ptile" data-idx="${idx}" role="button" tabindex="0" aria-label="Photo">
+        <div class="ptile-img">
+          ${p.src ? `<img src="${p.src}" alt="">` : `<span class="empty">add photo</span>`}
+          <span class="pnum"></span>
+        </div>
+        <p class="pcap"></p>
+      </div>`;
+    }).join('');
+    grid.querySelectorAll('.ptile').forEach(t=>{
+      t.addEventListener('click', ()=>pick(t));
+      t.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); pick(t); } });
+    });
+  }
+
+  function pick(tile){
+    if (locked || tile.classList.contains('solved')) return;
+    const idx = +tile.dataset.idx;
+    if (idx === next){
+      tile.classList.add('solved');
+      tile.querySelector('.pnum').textContent = next+1;
+      tile.querySelector('.pcap').textContent = PHOTOS[idx].caption;
+      next++;
+      burst();
+      if (next === PHOTOS.length){
+        msg.textContent = "Perfect — you remember every moment ♡";
+        locked = true;
+      } else {
+        msg.textContent = '';
+      }
+    } else {
+      tile.classList.add('shake');
+      setTimeout(()=>tile.classList.remove('shake'), 420);
+      msg.textContent = 'not quite — try again';
+    }
+  }
+
+  render();
+})();
 
 // Counter
 const pad = n => String(n).padStart(2,'0');
