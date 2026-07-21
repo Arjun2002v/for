@@ -199,6 +199,7 @@
   .qopts button:hover{transform:translateX(4px);border-color:#E4879F}
   .qopts button.right{background:#DFF3E8;border-color:#7FBF9B}
   .qopts button.wrong{background:#FBE0E7;border-color:#E4879F}
+  .qopts button.other-right{background:#DFF3E8;border-color:#7FBF9B;opacity:.55}
   .qopts button:disabled{cursor:default;transform:none}
   .qnote{font-family:var(--hand);font-size:1.3rem;color:#C4577A;margin-top:16px;min-height:1.4em}
   .qinput{
@@ -369,8 +370,10 @@ const QUIZ = [
   { q:"Where was our first date?",              a:["Corner House","Cubbon Park","That first walk around trifecta"], c:0, note:"and the hours didn't feel like hours." },
   { q:"What do I love most about your face?",  a:["Your eyes","Your smile","Your Nose"], c:0, note:"that one. Every time." },
   { q:"What's my favourite thing you say?",    a:["My name","'come here'","'you're impossible'"], c:0, note:"the way you say Ajjun,will stay in heart" },
-  { q:"What song reminds me of you?",          a:["The one from that night","The one you sent me","All of them now, honestly"], c:2, note:"you ruined my whole playlist ♡" },
-  { q:"What's my favourite time with you?",    a:["Late nights","Mornings","The boring in-between ones"], c:2,c:0, note:"You next to  me,is my favourite time" },
+  { q:"What song reminds me of you?",          type:'anyRight', a:["The song from my story","The one I sent you","All of them now, honestly"],
+    notes:["I still can't hear it without thinking of you ♡","You have impeccable taste — in songs, and in me.","You ruined my whole playlist, and I wouldn't have it any other way ♡"] },
+  { q:"What's my favourite time with you?",    type:'anyRight', a:["Late nights","Mornings","The boring in-between ones"],
+    notes:["There's something about you at 2am that's just different.","Mornings with you make even Mondays feel okay.","Nothing happening, just you next to me — that's my favourite."] },
   { q:"What did I think the first time I saw you?", type:'text', note:"Whatever you guessed, the real answer was — 'this one's different.' And I was right ♡" },
   { q:"How long am I planning to keep you?",   a:["A while","Long enough","Ask me in fifty years"], c:2, note:"I'll say the same thing then." },
 ];
@@ -383,6 +386,7 @@ let qi = 0, score = 0;
 function renderQ(){
   const item = QUIZ[qi];
   const isText = item.type === 'text';
+  const isAnyRight = item.type === 'anyRight';
   card.innerHTML = `
     <div class="qmeta"><span>Question ${qi+1} / ${QUIZ.length}</span><span>${score} ♡</span></div>
     <div class="qbar"><span id="qfill"></span></div>
@@ -414,6 +418,19 @@ function renderQ(){
     };
     submitBtn.addEventListener('click', submit);
     input.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); submit(); } });
+  } else if (isAnyRight){
+    document.querySelectorAll('#qopts button').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        const pick = +b.dataset.i;
+        document.querySelectorAll('#qopts button').forEach((x,i)=>{
+          x.disabled = true;
+          x.classList.add(i === pick ? 'right' : 'other-right');
+        });
+        score++; burst();
+        document.getElementById('qnote').textContent = item.notes[pick];
+        document.getElementById('qnext').hidden = false;
+      });
+    });
   } else {
     document.querySelectorAll('#qopts button').forEach(b=>{
       b.addEventListener('click', ()=>{
