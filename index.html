@@ -201,6 +201,18 @@
   .qopts button.wrong{background:#FBE0E7;border-color:#E4879F}
   .qopts button:disabled{cursor:default;transform:none}
   .qnote{font-family:var(--hand);font-size:1.3rem;color:#C4577A;margin-top:16px;min-height:1.4em}
+  .qinput{
+    width:100%;margin-top:20px;padding:14px 16px;border-radius:12px;resize:vertical;
+    font-family:var(--ui);font-weight:300;font-size:1rem;color:var(--ivory);
+    background:#FFFDFC;border:1px solid rgba(199,154,78,.3);
+    transition:border-color .25s ease;
+  }
+  .qinput:focus{outline:none;border-color:#E4879F}
+  .qsubmit{
+    margin-top:14px;font-family:var(--ui);font-size:.72rem;letter-spacing:.28em;text-transform:uppercase;
+    background:var(--gold);border:1px solid var(--gold);color:#fff;padding:11px 22px;border-radius:30px;
+    cursor:pointer;transition:opacity .3s ease}
+  .qsubmit:disabled{opacity:.4;cursor:default}
   .qnext{
     margin-top:18px;font-family:var(--ui);font-size:.72rem;letter-spacing:.28em;text-transform:uppercase;
     background:none;border:1px solid var(--gold);color:var(--gold);padding:11px 22px;border-radius:30px;
@@ -352,14 +364,14 @@ const PHOTOS = [
    a = the options, c = index of the correct one (0,1,2), note = what pops up after */
 const QUIZ = [
   { q:"Where did we first meet?",              a:["The place we always go back to","Somewhere neither of us planned","A friend's thing"], c:1, note:"and I'm so glad we did ♡" },
-  { q:"What was the first thing I said to you?",a:["Something painfully awkward","Something smooth","I honestly don't remember"], c:0, note:"I rehearsed it. It still came out wrong." },
-  { q:"Who texted first?",                     a:["You","Me","We both did at once"], c:1, note:"Did not expect the quick reply" },
-  { q:"Where was our first date?",              a:["Corner House","Cubbon Park","We just talked for hours"], c:2, note:"and the hours didn't feel like hours." },
-  { q:"What do I love most about your face?",  a:["Your eyes","Your smile","Your Nose"], c:2, note:"that one. Every time." },
-  { q:"What's my favourite thing you say?",    a:["My name","'come here'","'you're impossible'"], c:0, note:"the way you say it, specifically." },
+  { q:"What is the best thing about us", type:'text', note:"Whatever you wrote — that's exactly the thing I'd pick too ♡" },
+  { q:"Who texted first?",                     a:["You","Me","We both did at once"], c:0, note:"Did not expect the quick reply" },
+  { q:"Where was our first date?",              a:["Corner House","Cubbon Park","That first walk around trifecta"], c:0, note:"and the hours didn't feel like hours." },
+  { q:"What do I love most about your face?",  a:["Your eyes","Your smile","Your Nose"], c:0, note:"that one. Every time." },
+  { q:"What's my favourite thing you say?",    a:["My name","'come here'","'you're impossible'"], c:0, note:"the way you say Ajjun,will stay in heart" },
   { q:"What song reminds me of you?",          a:["The one from that night","The one you sent me","All of them now, honestly"], c:2, note:"you ruined my whole playlist ♡" },
-  { q:"What's my favourite time with you?",    a:["Late nights","Mornings","The boring in-between ones"], c:2, note:"nothing happening, you next to me." },
-  { q:"What did I think the first time I saw you?",a:["'Oh no.'","'Play it cool.'","'This one's different.'"], c:2, note:"I was right." },
+  { q:"What's my favourite time with you?",    a:["Late nights","Mornings","The boring in-between ones"], c:2,c:0, note:"You next to  me,is my favourite time" },
+  { q:"What did I think the first time I saw you?", type:'text', note:"Whatever you guessed, the real answer was — 'this one's different.' And I was right ♡" },
   { q:"How long am I planning to keep you?",   a:["A while","Long enough","Ask me in fifty years"], c:2, note:"I'll say the same thing then." },
 ];
 /* ═════════════════════════ */
@@ -370,30 +382,53 @@ let qi = 0, score = 0;
 
 function renderQ(){
   const item = QUIZ[qi];
+  const isText = item.type === 'text';
   card.innerHTML = `
     <div class="qmeta"><span>Question ${qi+1} / ${QUIZ.length}</span><span>${score} ♡</span></div>
     <div class="qbar"><span id="qfill"></span></div>
     <p class="qtext">${item.q}</p>
-    <ul class="qopts" id="qopts">
-      ${item.a.map((t,i)=>`<li><button data-i="${i}">${t}</button></li>`).join('')}
-    </ul>
+    ${isText ? `
+      <textarea class="qinput" id="qinput" rows="2" placeholder="type your answer…"></textarea>
+      <button class="qsubmit" id="qsubmit" disabled>Submit</button>
+    ` : `
+      <ul class="qopts" id="qopts">
+        ${item.a.map((t,i)=>`<li><button data-i="${i}">${t}</button></li>`).join('')}
+      </ul>
+    `}
     <p class="qnote" id="qnote"></p>
     <button class="qnext" id="qnext" hidden>${qi === QUIZ.length-1 ? 'See my score' : 'Next'}</button>`;
   requestAnimationFrame(()=>{ document.getElementById('qfill').style.width = (qi/QUIZ.length*100)+'%'; });
 
-  document.querySelectorAll('#qopts button').forEach(b=>{
-    b.addEventListener('click', ()=>{
-      const pick = +b.dataset.i;
-      document.querySelectorAll('#qopts button').forEach((x,i)=>{
-        x.disabled = true;
-        if (i === item.c) x.classList.add('right');
-        else if (i === pick) x.classList.add('wrong');
-      });
-      if (pick === item.c){ score++; burst(); }
+  if (isText){
+    const input = document.getElementById('qinput');
+    const submitBtn = document.getElementById('qsubmit');
+    input.addEventListener('input', ()=>{ submitBtn.disabled = !input.value.trim(); });
+    const submit = () => {
+      if (!input.value.trim()) return;
+      input.disabled = true;
+      submitBtn.disabled = true;
+      submitBtn.hidden = true;
+      score++; burst();
       document.getElementById('qnote').textContent = item.note;
       document.getElementById('qnext').hidden = false;
+    };
+    submitBtn.addEventListener('click', submit);
+    input.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); submit(); } });
+  } else {
+    document.querySelectorAll('#qopts button').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        const pick = +b.dataset.i;
+        document.querySelectorAll('#qopts button').forEach((x,i)=>{
+          x.disabled = true;
+          if (i === item.c) x.classList.add('right');
+          else if (i === pick) x.classList.add('wrong');
+        });
+        if (pick === item.c){ score++; burst(); }
+        document.getElementById('qnote').textContent = item.note;
+        document.getElementById('qnext').hidden = false;
+      });
     });
-  });
+  }
 
   const nxt = card.querySelector('#qnext');
   nxt.addEventListener('click', ()=>{ qi++; qi < QUIZ.length ? renderQ() : finish(); });
