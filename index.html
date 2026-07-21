@@ -226,29 +226,16 @@
 
   /* ── PUZZLE ── */
   .puzzle-hint{text-align:center;font-size:.68rem;letter-spacing:.28em;text-transform:uppercase;color:var(--gold);opacity:.8;margin-top:8px}
-  .puzzle-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;max-width:360px;margin:22px auto 0}
-  .ptile{
-    background:#FFFFFF;padding:10px 10px 8px;border-radius:14px;cursor:pointer;
-    box-shadow:0 16px 38px rgba(180,150,175,.25);border:2px solid transparent;
-    transition:transform .25s ease,border-color .25s ease;
+  .jig-grid{
+    display:grid;grid-template-columns:repeat(var(--n,4),1fr);gap:2px;
+    width:min(100%,340px);margin:22px auto 0;border-radius:12px;overflow:hidden;
+    background:#fff;box-shadow:0 18px 44px rgba(180,150,175,.28);
   }
-  .ptile:hover{transform:translateY(-3px)}
-  .ptile-img{position:relative;aspect-ratio:1/1;border-radius:9px;overflow:hidden;background:#F3E6EF}
-  .ptile-img img{width:100%;height:100%;object-fit:cover;display:block}
-  .ptile-img .empty{position:absolute;inset:0;display:grid;place-items:center;color:#B58AA8;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase}
-  .pnum{
-    position:absolute;top:8px;left:8px;width:22px;height:22px;border-radius:50%;
-    background:rgba(94,68,104,.78);color:#fff;font-family:var(--ui);font-size:.7rem;
-    display:none;align-items:center;justify-content:center;
-  }
-  .ptile.solved .pnum{display:flex}
-  .ptile.solved{border-color:#7FBF9B;cursor:default}
-  .ptile.solved:hover{transform:none}
-  .pcap{font-family:var(--hand);font-size:1.05rem;color:#5E4468;text-align:center;
-    opacity:0;max-height:0;overflow:hidden;transition:opacity .5s ease,max-height .5s ease}
-  .ptile.solved .pcap{opacity:1;max-height:2.2em;margin-top:6px}
-  @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
-  .ptile.shake{animation:shake .4s ease}
+  .jig-tile{aspect-ratio:1/1;cursor:pointer;background-color:#F3E6EF;outline:3px solid transparent;outline-offset:-3px;transition:outline-color .2s ease,filter .2s ease}
+  .jig-tile:hover{filter:brightness(1.05)}
+  .jig-tile.picked{outline-color:#E4879F}
+  .jig-grid.solved .jig-tile{cursor:default}
+  .jig-empty{font-family:var(--ui);font-size:.85rem;color:#B58AA8;text-align:center;padding:50px 24px;line-height:1.6}
   .puzzle-msg{font-family:var(--display);font-style:italic;font-size:1.25rem;color:#C4577A;text-align:center;margin-top:18px;min-height:1.6em}
 
   /* ── END ── */
@@ -334,11 +321,11 @@
   <!-- PUZZLE -->
   <section class="center">
     <p class="eyebrow reveal">One more thing</p>
-    <h2 class="reveal" style="font-family:var(--display);font-style:italic;font-weight:300;font-size:2rem;margin-top:10px">Put our month back in order.</h2>
-    <p class="puzzle-hint reveal">tap the photos in the order they happened</p>
+    <h2 class="reveal" style="font-family:var(--display);font-style:italic;font-weight:300;font-size:2rem;margin-top:10px">Piece us back together.</h2>
+    <p class="puzzle-hint reveal">tap two pieces to swap them</p>
     <div class="reveal">
-      <div class="puzzle-grid" id="puzzleGrid"></div>
-      <p class="puzzle-msg" id="puzzleMsg"></p>
+      <div class="jig-grid" id="jigGrid"></div>
+      <p class="puzzle-msg" id="jigMsg"></p>
     </div>
   </section>
 
@@ -351,7 +338,7 @@
 </main>
 
 <script>
-/* ═══ EDIT THESE TWO THINGS ═══ */
+/* ═══ EDIT THESE THINGS ═══ */
 const START_DATE = new Date('2026-06-13T20:00:00'); // the day you two started
 const PHOTOS = [
   { src:'', caption:'the first day'      },
@@ -359,6 +346,7 @@ const PHOTOS = [
   { src:'', caption:'us, being us'       },
   { src:'', caption:'my favourite one'   },
 ];
+const PUZZLE_PHOTO = ''; // one photo for the "piece us back together" puzzle
 /* ═════════════════════════════ */
 
 /* ═══ EDIT THE QUIZ HERE ═══
@@ -479,56 +467,65 @@ document.getElementById('polaroids').innerHTML = PHOTOS.map((p,i)=>`
 
 // Puzzle
 (function(){
-  const grid = document.getElementById('puzzleGrid');
-  const msg = document.getElementById('puzzleMsg');
-  if (!grid || !PHOTOS.length) return;
+  const grid = document.getElementById('jigGrid');
+  const msg = document.getElementById('jigMsg');
+  if (!grid) return;
 
-  const order = PHOTOS.map((_,i)=>i);
+  if (!PUZZLE_PHOTO){
+    grid.innerHTML = `<p class="jig-empty">add a photo to PUZZLE_PHOTO in the code to play</p>`;
+    return;
+  }
+
+  const N = 4;
+  const total = N * N;
+  grid.style.setProperty('--n', N);
+
+  const board = Array.from({length: total}, (_, i) => i); // board[position] = piece
   do {
-    for (let i = order.length-1; i>0; i--){
-      const j = Math.floor(Math.random()*(i+1));
-      [order[i],order[j]] = [order[j],order[i]];
+    for (let i = board.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [board[i], board[j]] = [board[j], board[i]];
     }
-  } while (PHOTOS.length>1 && order.every((v,i)=>v===i));
+  } while (board.every((v, i) => v === i));
 
-  let next = 0, locked = false;
+  let selected = null, locked = false;
+
+  function pieceStyle(piece){
+    const r = Math.floor(piece / N), c = piece % N;
+    return `background-image:url('${PUZZLE_PHOTO}');background-size:${N * 100}% ${N * 100}%;background-position:${c / (N - 1) * 100}% ${r / (N - 1) * 100}%`;
+  }
 
   function render(){
-    grid.innerHTML = order.map(idx=>{
-      const p = PHOTOS[idx];
-      return `<div class="ptile" data-idx="${idx}" role="button" tabindex="0" aria-label="Photo">
-        <div class="ptile-img">
-          ${p.src ? `<img src="${p.src}" alt="">` : `<span class="empty">add photo</span>`}
-          <span class="pnum"></span>
-        </div>
-        <p class="pcap"></p>
-      </div>`;
-    }).join('');
-    grid.querySelectorAll('.ptile').forEach(t=>{
-      t.addEventListener('click', ()=>pick(t));
-      t.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); pick(t); } });
+    grid.innerHTML = board.map((piece, pos) =>
+      `<div class="jig-tile" data-pos="${pos}" role="button" tabindex="0" aria-label="Puzzle piece" style="${pieceStyle(piece)}"></div>`
+    ).join('');
+    grid.querySelectorAll('.jig-tile').forEach(t => {
+      t.addEventListener('click', () => select(t));
+      t.addEventListener('keydown', e => { if(e.key==='Enter'||e.key===' '){ e.preventDefault(); select(t); } });
     });
   }
 
-  function pick(tile){
-    if (locked || tile.classList.contains('solved')) return;
-    const idx = +tile.dataset.idx;
-    if (idx === next){
-      tile.classList.add('solved');
-      tile.querySelector('.pnum').textContent = next+1;
-      tile.querySelector('.pcap').textContent = PHOTOS[idx].caption;
-      next++;
+  function select(tile){
+    if (locked) return;
+    const pos = +tile.dataset.pos;
+    if (selected === null){
+      selected = pos;
+      tile.classList.add('picked');
+      return;
+    }
+    if (selected === pos){
+      tile.classList.remove('picked');
+      selected = null;
+      return;
+    }
+    [board[selected], board[pos]] = [board[pos], board[selected]];
+    selected = null;
+    render();
+    if (board.every((v, i) => v === i)){
+      locked = true;
+      grid.classList.add('solved');
+      msg.textContent = "There you are ♡";
       burst();
-      if (next === PHOTOS.length){
-        msg.textContent = "Perfect — you remember every moment ♡";
-        locked = true;
-      } else {
-        msg.textContent = '';
-      }
-    } else {
-      tile.classList.add('shake');
-      setTimeout(()=>tile.classList.remove('shake'), 420);
-      msg.textContent = 'not quite — try again';
     }
   }
 
